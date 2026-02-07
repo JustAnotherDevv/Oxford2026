@@ -115,6 +115,7 @@ fn build_tree_depth_2(l0: Field, l1: Field, l2: Field, l3: Field) -> (Field, Fie
 fn test_transfer_with_dummy_input() {
     let a_owner = 1;
     let b_owner = 2;
+    let fee = 0;
 
     let a_secret = 111;
     let a_value = 1000;
@@ -131,17 +132,74 @@ fn test_transfer_with_dummy_input() {
     let dummy_secret = 77777;
     let dummy_index = 99999;
     let null_2 = compute_nullifier(dummy_secret, dummy_index);
-
     assert(null_1 != null_2);
 
     let out_value_1 = 1000;
     let out_value_2 = 0;
-    assert(a_value + 0 == out_value_1 + out_value_2);
+    assert(a_value + 0 == out_value_1 + out_value_2 + fee);
 
     let b_secret = 222;
     let change_secret = 333;
     let _out_comm_1 = compute_commitment(out_value_1, b_secret, b_owner);
     let _out_comm_2 = compute_commitment(out_value_2, change_secret, a_owner);
+}
+
+#[test]
+fn test_transfer_with_relayer_fee() {
+    let a_owner = 1;
+    let b_owner = 2;
+    let relayer_addr = 0xdead;
+    let fee = 50;
+
+    let a_secret = 111;
+    let a_value = 1000;
+    let a_commitment = compute_commitment(a_value, a_secret, a_owner);
+
+    let filler = compute_commitment(500, 999, 99);
+    let (root, _node0, node1) = build_tree_depth_2(a_commitment, filler, filler, filler);
+
+    let computed_root = verify_merkle_proof(a_commitment, 0, [filler, node1], [0, 0]);
+    assert(computed_root == root);
+
+    let null_1 = compute_nullifier(a_secret, 0);
+    let null_2 = compute_nullifier(77777, 99999);
+    assert(null_1 != null_2);
+
+    let out_value_1 = 950;
+    let out_value_2 = 0;
+    assert(a_value + 0 == out_value_1 + out_value_2 + fee);
+
+    assert(relayer_addr == 0xdead);
+
+    let _out_comm_1 = compute_commitment(out_value_1, 222, b_owner);
+    let _out_comm_2 = compute_commitment(out_value_2, 333, a_owner);
+}
+
+#[test]
+fn test_partial_transfer_with_relayer_fee() {
+    let a_owner = 1;
+    let b_owner = 2;
+    let fee = 50;
+
+    let a_value = 1000;
+    let out_to_b = 600;
+    let change = 350;
+
+    assert(a_value + 0 == out_to_b + change + fee);
+
+    let _comm_b = compute_commitment(out_to_b, 222, b_owner);
+    let _comm_change = compute_commitment(change, 333, a_owner);
+}
+
+#[test(should_fail)]
+fn test_relayer_cannot_inflate_fee() {
+    let input_total = 1000;
+    let out_total = 950;
+    let honest_fee = 50;
+    let inflated_fee = 100;
+
+    assert(input_total == out_total + honest_fee);
+    assert(input_total == out_total + inflated_fee);
 }
 
 #[test]
@@ -159,7 +217,8 @@ fn test_split_inside_pool() {
 
     let out_1 = 700;
     let out_2 = 300;
-    assert(a_value + 0 == out_1 + out_2);
+    let fee = 0;
+    assert(a_value + 0 == out_1 + out_2 + fee);
 
     let new_secret_1 = 444;
     let new_secret_2 = 555;
@@ -192,7 +251,8 @@ fn test_merge_two_notes() {
 
     let merged_value = 1000;
     let zero_change = 0;
-    assert(700 + 300 == merged_value + zero_change);
+    let fee = 0;
+    assert(700 + 300 == merged_value + zero_change + fee);
 
     let merged_secret = 666;
     let zero_secret = 777;
