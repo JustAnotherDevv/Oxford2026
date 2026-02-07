@@ -8,6 +8,10 @@ pub fn compute_nullifier(secret: Field, leaf_index: Field) -> Field {
     pedersen_hash([secret, leaf_index])
 }
 
+pub fn compute_encrypted_value(value: Field, viewing_key: Field, commitment: Field) -> Field {
+    value + pedersen_hash([viewing_key, commitment])
+}
+
 pub fn verify_merkle_proof<let N: u32>(
     leaf: Field,
     _leaf_index: Field,

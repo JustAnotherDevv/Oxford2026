@@ -1,26 +1,20 @@
 mod internal_transfer;
 
-use internal_transfer::{compute_commitment, compute_nullifier, verify_merkle_proof};
-
-// 2-in-2-out Private Transaction Circuit with Relayer Support
-//
-// Supports all pool operations with a single circuit:
-//   Transfer: note(X, A) + dummy      -> note(X, B) + note(0, _)
-//   Split:    note(X, A) + dummy      -> note(Y, A) + note(X-Y, A)
-//   Merge:    note(X, A) + note(Y, A) -> note(X+Y, A) + note(0, _)
-//   Mixed:    note(X, A) + note(Y, A) -> note(Z, B) + note(X+Y-Z, A)
+use internal_transfer::{compute_commitment, compute_nullifier, verify_merkle_proof, compute_encrypted_value};
 
 global TREE_DEPTH: u32 = 20;
 
 fn main(
-    // --- public inputs (7 fields visible on-chain) ---
+    // --- public inputs ---
     merkle_root: pub Field,
     nullifier_1: pub Field,
     nullifier_2: pub Field,
     out_commitment_1: pub Field,
     out_commitment_2: pub Field,
-    fee: pub Field,     
-    relayer: pub Field,     
+    fee: pub Field,
+    relayer: pub Field,
+    encrypted_value_1: pub Field,
+    encrypted_value_2: pub Field,
 
     // --- input note 1 ---
     in_value_1: Field,
@@ -49,6 +43,10 @@ fn main(
     out_value_2: Field,
     out_secret_2: Field,
     out_owner_2: Field,
+
+    // --- viewing keys ---
+    out_viewing_key_1: Field,
+    out_viewing_key_2: Field,
 ) {
     // ========== Input 1 ==========
     assert((in_is_dummy_1 == 0) | (in_is_dummy_1 == 1), "Dummy flag must be 0 or 1");
@@ -78,7 +76,6 @@ fn main(
     assert(nullifier_1 != nullifier_2, "Duplicate nullifier");
 
     // ========== Balance conservation ==========
-    // inputs = outputs + fee (fee goes to relayer as gas compensation)
     let total_in = in_value_1 + in_value_2;
     let total_out = out_value_1 + out_value_2;
     assert(total_in == total_out + fee, "Amounts do not balance");
@@ -93,4 +90,11 @@ fn main(
 
     let computed_out_2 = compute_commitment(out_value_2, out_secret_2, out_owner_2);
     assert(computed_out_2 == out_commitment_2, "Output 2: commitment mismatch");
+
+    // ========== Viewing key encryption ==========
+    let computed_enc_1 = compute_encrypted_value(out_value_1, out_viewing_key_1, out_commitment_1);
+    assert(computed_enc_1 == encrypted_value_1, "Encrypted value 1 mismatch");
+
+    let computed_enc_2 = compute_encrypted_value(out_value_2, out_viewing_key_2, out_commitment_2);
+    assert(computed_enc_2 == encrypted_value_2, "Encrypted value 2 mismatch");
 }

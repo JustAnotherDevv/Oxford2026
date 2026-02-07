@@ -16,7 +16,6 @@ describe("E2E: Real Proof Verification", function () {
   let helperCircuit;
 
   before(async function () {
-    // Compile both circuits
     execSync(`${NARGO} compile`, { cwd: NOIR_DIR });
     execSync(`${NARGO} compile`, { cwd: HELPER_DIR });
 
@@ -25,8 +24,6 @@ describe("E2E: Real Proof Verification", function () {
   });
 
   it("should generate a real proof and verify it on the HonkVerifier contract", async function () {
-    // ====== Step 1: Compute Pedersen hashes via helper circuit (noir_js) ======
-    console.log("    Computing Pedersen hashes via helper circuit...");
     const helper = new Noir(helperCircuit);
 
     const testValues = {
@@ -34,6 +31,8 @@ describe("E2E: Real Proof Verification", function () {
       in_secret_2: "67890", in_leaf_index_2: "1",
       out_value_1: "0", out_secret_1: "11111", out_owner_1: "1",
       out_value_2: "0", out_secret_2: "22222", out_owner_2: "2",
+      out_viewing_key_1: "55555",
+      out_viewing_key_2: "66666",
     };
 
     const { returnValue } = await helper.execute({
@@ -47,16 +46,12 @@ describe("E2E: Real Proof Verification", function () {
       comm_val_2: testValues.out_value_2,
       comm_sec_2: testValues.out_secret_2,
       comm_own_2: testValues.out_owner_2,
+      vk_1: testValues.out_viewing_key_1,
+      vk_2: testValues.out_viewing_key_2,
     });
 
-    const [nullifier1, nullifier2, outCommitment1, outCommitment2] = returnValue;
-    console.log("    Nullifier 1:", nullifier1);
-    console.log("    Nullifier 2:", nullifier2);
-    console.log("    Out Commitment 1:", outCommitment1);
-    console.log("    Out Commitment 2:", outCommitment2);
+    const [nullifier1, nullifier2, outCommitment1, outCommitment2, encryptedValue1, encryptedValue2] = returnValue;
 
-    // ====== Step 2: Write Prover.toml with correct values ======
-    console.log("    Writing Prover.toml...");
     const zeroPath = Array(20).fill('"0"').join(", ");
     const proverToml = [
       `merkle_root = "0"`,
@@ -66,6 +61,8 @@ describe("E2E: Real Proof Verification", function () {
       `out_commitment_2 = "${outCommitment2}"`,
       `fee = "0"`,
       `relayer = "0"`,
+      `encrypted_value_1 = "${encryptedValue1}"`,
+      `encrypted_value_2 = "${encryptedValue2}"`,
       `in_value_1 = "0"`,
       `in_secret_1 = "${testValues.in_secret_1}"`,
       `in_owner_1 = "1"`,
@@ -86,11 +83,11 @@ describe("E2E: Real Proof Verification", function () {
       `out_value_2 = "${testValues.out_value_2}"`,
       `out_secret_2 = "${testValues.out_secret_2}"`,
       `out_owner_2 = "${testValues.out_owner_2}"`,
+      `out_viewing_key_1 = "${testValues.out_viewing_key_1}"`,
+      `out_viewing_key_2 = "${testValues.out_viewing_key_2}"`,
     ].join("\n");
     fs.writeFileSync(path.join(NOIR_DIR, "Prover.toml"), proverToml);
 
-    // ====== Step 3: Execute circuit and generate proof using CLI ======
-    console.log("    Running nargo execute...");
     execSync(`${NARGO} execute e2e_witness`, { cwd: NOIR_DIR });
 
     const witnessPath = path.join(NOIR_DIR, "target/e2e_witness.gz");
@@ -98,37 +95,27 @@ describe("E2E: Real Proof Verification", function () {
     const proofDir = path.join(NOIR_DIR, "target/proof");
     fs.mkdirSync(proofDir, { recursive: true });
 
-    console.log("    Running bb prove (this may take a while)...");
     execSync(
       `${BB} prove -b ${circuitPath} -w ${witnessPath} -o ${proofDir} --oracle_hash keccak --init_kzg_accumulator`,
       { cwd: NOIR_DIR, timeout: 300000 }
     );
-    console.log("    Proof generated.");
 
-    // ====== Step 4: Read proof and public inputs (separate files from bb CLI) ======
     const proofBytes = fs.readFileSync(path.join(proofDir, "proof"));
     const pubInputsBytes = fs.readFileSync(path.join(proofDir, "public_inputs"));
-    console.log("    Proof size:", proofBytes.length, "bytes (expected 14592)");
-    console.log("    Public inputs size:", pubInputsBytes.length, "bytes (expected 224)");
 
     const proofHex = "0x" + proofBytes.toString("hex");
 
-    // Split public_inputs into 32-byte chunks (7 field elements)
     const publicInputsHex = [];
     for (let i = 0; i < pubInputsBytes.length; i += 32) {
       publicInputsHex.push("0x" + pubInputsBytes.slice(i, i + 32).toString("hex"));
     }
-    console.log("    Public inputs count:", publicInputsHex.length, "(expected 7)");
+    expect(publicInputsHex.length).to.equal(9);
 
-    // ====== Step 5: Deploy HonkVerifier and verify on-chain ======
-    console.log("    Deploying HonkVerifier...");
     const HonkVerifier = await ethers.getContractFactory("HonkVerifier");
     const verifier = await HonkVerifier.deploy();
     await verifier.waitForDeployment();
 
-    console.log("    Verifying proof on-chain...");
     const result = await verifier.verify(proofHex, publicInputsHex);
     expect(result).to.be.true;
-    console.log("    ON-CHAIN VERIFICATION: PASSED");
   });
 });

@@ -5,7 +5,6 @@ describe("PrivatePool", function () {
   let pool, token, verifier;
   let deployer, alice, relayer;
 
-  // Dummy values — mock verifier accepts anything
   const DUMMY_PROOF = "0x";
   const commitment1 = ethers.id("commitment1");
   const commitment2 = ethers.id("commitment2");
@@ -15,6 +14,8 @@ describe("PrivatePool", function () {
   const nullifier2 = ethers.id("nullifier2");
   const nullifier3 = ethers.id("nullifier3");
   const nullifier4 = ethers.id("nullifier4");
+  const encryptedValue1 = ethers.id("encryptedValue1");
+  const encryptedValue2 = ethers.id("encryptedValue2");
 
   beforeEach(async function () {
     [deployer, alice, relayer] = await ethers.getSigners();
@@ -31,7 +32,6 @@ describe("PrivatePool", function () {
       await token.getAddress()
     );
 
-    // Mint tokens to alice
     await token.mint(await alice.getAddress(), ethers.parseEther("1000"));
   });
 
@@ -81,7 +81,6 @@ describe("PrivatePool", function () {
 
   describe("Transact", function () {
     beforeEach(async function () {
-      // Deposit first so pool has tokens and a known root
       const amount = ethers.parseEther("100");
       await token.connect(alice).approve(await pool.getAddress(), amount);
       await pool.connect(alice).deposit(commitment1, amount);
@@ -100,11 +99,13 @@ describe("PrivatePool", function () {
         commitment3,
         fee,
         relayerField,
+        encryptedValue1,
+        encryptedValue2,
       ];
 
       await expect(pool.connect(alice).transact(DUMMY_PROOF, publicInputs))
         .to.emit(pool, "Transact")
-        .withArgs(nullifier1, nullifier2, commitment2, commitment3);
+        .withArgs(nullifier1, nullifier2, commitment2, commitment3, encryptedValue1, encryptedValue2);
     });
 
     it("should mark nullifiers as spent", async function () {
@@ -115,6 +116,7 @@ describe("PrivatePool", function () {
       const publicInputs = [
         root, nullifier1, nullifier2,
         commitment2, commitment3, fee, relayerField,
+        encryptedValue1, encryptedValue2,
       ];
 
       await pool.connect(alice).transact(DUMMY_PROOF, publicInputs);
@@ -131,14 +133,15 @@ describe("PrivatePool", function () {
       const publicInputs = [
         root, nullifier1, nullifier2,
         commitment2, commitment3, fee, relayerField,
+        encryptedValue1, encryptedValue2,
       ];
 
       await pool.connect(alice).transact(DUMMY_PROOF, publicInputs);
 
-      // Try to reuse nullifier1
       const publicInputs2 = [
         await pool.getLastRoot(), nullifier1, nullifier3,
         commitment4, commitment2, fee, relayerField,
+        encryptedValue1, encryptedValue2,
       ];
 
       await expect(
@@ -156,6 +159,7 @@ describe("PrivatePool", function () {
       const publicInputs = [
         root, nullifier1, nullifier2,
         commitment2, commitment3, feePadded, relayerField,
+        encryptedValue1, encryptedValue2,
       ];
 
       const balanceBefore = await token.balanceOf(relayerAddr);
@@ -173,6 +177,7 @@ describe("PrivatePool", function () {
       const publicInputs = [
         fakeRoot, nullifier1, nullifier2,
         commitment2, commitment3, fee, relayerField,
+        encryptedValue1, encryptedValue2,
       ];
 
       await expect(
@@ -197,6 +202,7 @@ describe("PrivatePool", function () {
       const publicInputs = [
         root, nullifier1, nullifier2,
         commitment2, commitment3, fee, relayerField,
+        encryptedValue1, encryptedValue2,
       ];
 
       const recipient = await alice.getAddress();
@@ -221,6 +227,7 @@ describe("PrivatePool", function () {
       const publicInputs = [
         root, nullifier1, nullifier2,
         commitment2, commitment3, feePadded, relayerField,
+        encryptedValue1, encryptedValue2,
       ];
 
       const relayerBefore = await token.balanceOf(relayerAddr);
@@ -241,6 +248,7 @@ describe("PrivatePool", function () {
       const publicInputs = [
         root, nullifier1, nullifier2,
         commitment2, commitment3, fee, relayerField,
+        encryptedValue1, encryptedValue2,
       ];
 
       await expect(
