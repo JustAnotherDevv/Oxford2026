@@ -4,11 +4,16 @@ pragma solidity ^0.8.27;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {HonkVerifier} from "./plonk_vk.sol";
 
+interface IKYBRegistry {
+    function isApproved(address account) external view returns (bool);
+}
+
 contract PrivatePool {
     // ===================== State =====================
 
     HonkVerifier public immutable verifier;
     IERC20 public immutable token;
+    IKYBRegistry public immutable kybRegistry;
 
     uint256 public constant TREE_DEPTH = 20;
     uint256 public constant MAX_LEAVES = 2 ** TREE_DEPTH;
@@ -23,6 +28,13 @@ contract PrivatePool {
 
     mapping(bytes32 => bool) public nullifierUsed;
 
+    // ===================== Modifiers =====================
+
+    modifier onlyKYB() {
+        require(kybRegistry.isApproved(msg.sender), "Not KYB approved");
+        _;
+    }
+
     // ===================== Events =====================
 
     event Deposit(bytes32 indexed commitment, uint256 leafIndex, uint256 amount);
@@ -35,9 +47,10 @@ contract PrivatePool {
 
     // ===================== Constructor =====================
 
-    constructor(address _verifier, address _token) {
+    constructor(address _verifier, address _token, address _kybRegistry) {
         verifier = HonkVerifier(_verifier);
         token = IERC20(_token);
+        kybRegistry = IKYBRegistry(_kybRegistry);
 
         bytes32 currentZero = bytes32(0);
         for (uint256 i = 0; i < TREE_DEPTH; i++) {
@@ -50,7 +63,7 @@ contract PrivatePool {
 
     // ===================== Deposit =====================
 
-    function deposit(bytes32 commitment, uint256 amount) external {
+    function deposit(bytes32 commitment, uint256 amount) external onlyKYB {
         require(amount > 0, "Zero amount");
         require(nextLeafIndex < MAX_LEAVES, "Tree full");
 
@@ -64,7 +77,7 @@ contract PrivatePool {
 
     // ===================== Transact =====================
 
-    function transact(bytes calldata proof, bytes32[] calldata publicInputs) external {
+    function transact(bytes calldata proof, bytes32[] calldata publicInputs) external onlyKYB {
         require(publicInputs.length == 9, "Bad public inputs");
 
         bytes32 merkleRoot = publicInputs[0];
@@ -103,10 +116,11 @@ contract PrivatePool {
         bytes32[] calldata publicInputs,
         address recipient,
         uint256 withdrawAmount
-    ) external {
+    ) external onlyKYB {
         require(publicInputs.length == 9, "Bad public inputs");
         require(recipient != address(0), "Bad recipient");
         require(withdrawAmount > 0, "Zero withdraw");
+        require(kybRegistry.isApproved(recipient), "Recipient not KYB approved");
 
         bytes32 merkleRoot = publicInputs[0];
         bytes32 nullifier1 = publicInputs[1];

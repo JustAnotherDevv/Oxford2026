@@ -2,8 +2,8 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("PrivatePool", function () {
-  let pool, token, verifier;
-  let deployer, alice, relayer;
+  let pool, token, verifier, kybRegistry;
+  let deployer, alice, relayer, outsider;
 
   const DUMMY_PROOF = "0x";
   const commitment1 = ethers.id("commitment1");
@@ -18,7 +18,7 @@ describe("PrivatePool", function () {
   const encryptedValue2 = ethers.id("encryptedValue2");
 
   beforeEach(async function () {
-    [deployer, alice, relayer] = await ethers.getSigners();
+    [deployer, alice, relayer, outsider] = await ethers.getSigners();
 
     const MockVerifier = await ethers.getContractFactory("MockVerifier");
     verifier = await MockVerifier.deploy();
@@ -26,19 +26,32 @@ describe("PrivatePool", function () {
     const MockERC20 = await ethers.getContractFactory("MockERC20");
     token = await MockERC20.deploy();
 
+    const MockKYBRegistry = await ethers.getContractFactory("MockKYBRegistry");
+    kybRegistry = await MockKYBRegistry.deploy();
+
     const PrivatePool = await ethers.getContractFactory("PrivatePool");
     pool = await PrivatePool.deploy(
       await verifier.getAddress(),
-      await token.getAddress()
+      await token.getAddress(),
+      await kybRegistry.getAddress()
     );
 
+    // Approve alice and relayer for KYB
+    await kybRegistry.approve(await alice.getAddress());
+    await kybRegistry.approve(await relayer.getAddress());
+
     await token.mint(await alice.getAddress(), ethers.parseEther("1000"));
+    await token.mint(await outsider.getAddress(), ethers.parseEther("1000"));
   });
 
   describe("Deployment", function () {
     it("should set verifier and token", async function () {
       expect(await pool.verifier()).to.equal(await verifier.getAddress());
       expect(await pool.token()).to.equal(await token.getAddress());
+    });
+
+    it("should set KYB registry", async function () {
+      expect(await pool.kybRegistry()).to.equal(await kybRegistry.getAddress());
     });
 
     it("should start with leaf index 0", async function () {
@@ -256,6 +269,94 @@ describe("PrivatePool", function () {
           DUMMY_PROOF, publicInputs, await alice.getAddress(), 0
         )
       ).to.be.revertedWith("Zero withdraw");
+    });
+  });
+
+  describe("KYB Gating", function () {
+    it("should reject deposit from non-KYB address", async function () {
+      const amount = ethers.parseEther("100");
+      await token.connect(outsider).approve(await pool.getAddress(), amount);
+
+      await expect(
+        pool.connect(outsider).deposit(commitment1, amount)
+      ).to.be.revertedWith("Not KYB approved");
+    });
+
+    it("should reject transact from non-KYB address", async function () {
+      // First deposit as alice (KYB-approved)
+      const amount = ethers.parseEther("100");
+      await token.connect(alice).approve(await pool.getAddress(), amount);
+      await pool.connect(alice).deposit(commitment1, amount);
+
+      const root = await pool.getLastRoot();
+      const fee = ethers.zeroPadValue("0x00", 32);
+      const relayerField = ethers.zeroPadValue("0x00", 32);
+
+      const publicInputs = [
+        root, nullifier1, nullifier2,
+        commitment2, commitment3, fee, relayerField,
+        encryptedValue1, encryptedValue2,
+      ];
+
+      await expect(
+        pool.connect(outsider).transact(DUMMY_PROOF, publicInputs)
+      ).to.be.revertedWith("Not KYB approved");
+    });
+
+    it("should reject withdraw from non-KYB address", async function () {
+      const amount = ethers.parseEther("100");
+      await token.connect(alice).approve(await pool.getAddress(), amount);
+      await pool.connect(alice).deposit(commitment1, amount);
+
+      const root = await pool.getLastRoot();
+      const fee = ethers.zeroPadValue("0x00", 32);
+      const relayerField = ethers.zeroPadValue("0x00", 32);
+
+      const publicInputs = [
+        root, nullifier1, nullifier2,
+        commitment2, commitment3, fee, relayerField,
+        encryptedValue1, encryptedValue2,
+      ];
+
+      await expect(
+        pool.connect(outsider).withdraw(
+          DUMMY_PROOF, publicInputs, await outsider.getAddress(), ethers.parseEther("50")
+        )
+      ).to.be.revertedWith("Not KYB approved");
+    });
+
+    it("should reject withdraw to non-KYB recipient", async function () {
+      const amount = ethers.parseEther("100");
+      await token.connect(alice).approve(await pool.getAddress(), amount);
+      await pool.connect(alice).deposit(commitment1, amount);
+
+      const root = await pool.getLastRoot();
+      const fee = ethers.zeroPadValue("0x00", 32);
+      const relayerField = ethers.zeroPadValue("0x00", 32);
+
+      const publicInputs = [
+        root, nullifier1, nullifier2,
+        commitment2, commitment3, fee, relayerField,
+        encryptedValue1, encryptedValue2,
+      ];
+
+      await expect(
+        pool.connect(alice).withdraw(
+          DUMMY_PROOF, publicInputs, await outsider.getAddress(), ethers.parseEther("50")
+        )
+      ).to.be.revertedWith("Recipient not KYB approved");
+    });
+
+    it("should block a revoked address", async function () {
+      // Alice is approved, revoke her
+      await kybRegistry.revoke(await alice.getAddress());
+
+      const amount = ethers.parseEther("100");
+      await token.connect(alice).approve(await pool.getAddress(), amount);
+
+      await expect(
+        pool.connect(alice).deposit(commitment1, amount)
+      ).to.be.revertedWith("Not KYB approved");
     });
   });
 });
