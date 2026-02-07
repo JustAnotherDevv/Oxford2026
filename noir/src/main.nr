@@ -93,3 +93,4 @@ fn main(
 
     let computed_out_2 = compute_commitment(out_value_2, out_secret_2, out_owner_2);
     assert(computed_out_2 == out_commitment_2, "Output 2: commitment mismatch");
+}
