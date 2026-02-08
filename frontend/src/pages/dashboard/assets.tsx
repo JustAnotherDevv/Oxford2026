@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, Plus } from "lucide-react";
+import { TrendingUp, TrendingDown, Plus, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
+  Legend,
 } from "recharts";
 
 const portfolio = [
@@ -25,18 +26,18 @@ const portfolio = [
     allocation: 55.7,
     change: "+0.01%",
     up: true,
-    chain: "Multi-chain",
+    chain: "Plasma",
     color: "hsl(200, 70%, 50%)",
   },
   {
-    name: "Ethereum",
-    symbol: "ETH",
-    balance: "412.58",
+    name: "Plasma",
+    symbol: "XPL",
+    balance: "1,250,000.00",
     value: "$1,234,567",
     allocation: 32.1,
     change: "+3.24%",
     up: true,
-    chain: "Ethereum",
+    chain: "Plasma",
     color: "hsl(160, 84%, 39%)",
   },
   {
@@ -47,19 +48,8 @@ const portfolio = [
     allocation: 10.1,
     change: "-1.12%",
     up: false,
-    chain: "Bitcoin",
+    chain: "Plasma",
     color: "hsl(40, 90%, 56%)",
-  },
-  {
-    name: "Solana",
-    symbol: "SOL",
-    balance: "520.00",
-    value: "$80,000",
-    allocation: 2.1,
-    change: "+5.67%",
-    up: true,
-    chain: "Solana",
-    color: "hsl(280, 65%, 60%)",
   },
 ];
 
@@ -70,12 +60,12 @@ const pieData = portfolio.map((a) => ({
 }));
 
 const performanceData = [
-  { month: "Aug", value: 3200000 },
-  { month: "Sep", value: 3050000 },
-  { month: "Oct", value: 3400000 },
-  { month: "Nov", value: 3600000 },
-  { month: "Dec", value: 3350000 },
-  { month: "Jan", value: 3847291 },
+  { month: "Aug", value: 3200000, priceGain: 48000, yield: 16000 },
+  { month: "Sep", value: 3050000, priceGain: -102000, yield: 18300 },
+  { month: "Oct", value: 3400000, priceGain: 289000, yield: 20400 },
+  { month: "Nov", value: 3600000, priceGain: 158000, yield: 21600 },
+  { month: "Dec", value: 3350000, priceGain: -208000, yield: 23450 },
+  { month: "Jan", value: 3847291, priceGain: 425000, yield: 26891 },
 ];
 
 export default function AssetsPage() {
@@ -96,6 +86,23 @@ export default function AssetsPage() {
           Add Asset
         </Button>
       </div>
+
+      {/* Yield banner */}
+      <Card className="bg-primary/5 border-primary/20">
+        <CardContent className="flex items-center gap-3 p-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
+            <Sparkles className="h-4.5 w-4.5 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-card-foreground">
+              Your portfolio is passively accruing yield from delta-neutral strategies
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Returns are generated through hedged positions that remain market-neutral, protecting capital while earning yield.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Total value + chart row */}
       <div className="grid gap-6 lg:grid-cols-3">
@@ -152,7 +159,7 @@ export default function AssetsPage() {
           </CardContent>
         </Card>
 
-        {/* Bar chart */}
+        {/* Bar chart — 3 stacked values */}
         <Card className="bg-card border-border lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold text-card-foreground">
@@ -187,15 +194,44 @@ export default function AssetsPage() {
                       borderRadius: "8px",
                       color: "hsl(0, 0%, 95%)",
                     }}
-                    formatter={(value: number) => [
-                      `$${value.toLocaleString()}`,
-                      "Value",
-                    ]}
+                    formatter={(val: number, name: string) => {
+                      const label =
+                        name === "value"
+                          ? "Portfolio Value"
+                          : name === "priceGain"
+                            ? "Price Gain"
+                            : "Yield Earned";
+                      const prefix = name !== "value" && val > 0 ? "+" : "";
+                      return [`${prefix}$${val.toLocaleString()}`, label];
+                    }}
+                  />
+                  <Legend
+                    formatter={(val: string) =>
+                      val === "value"
+                        ? "Value"
+                        : val === "priceGain"
+                          ? "Price Gain"
+                          : "Yield"
+                    }
+                    wrapperStyle={{ fontSize: 12, color: "hsl(220, 10%, 55%)" }}
                   />
                   <Bar
                     dataKey="value"
                     fill="hsl(160, 84%, 39%)"
+                    radius={[0, 0, 0, 0]}
+                    stackId="a"
+                  />
+                  <Bar
+                    dataKey="priceGain"
+                    fill="hsl(200, 70%, 50%)"
+                    radius={[0, 0, 0, 0]}
+                    stackId="b"
+                  />
+                  <Bar
+                    dataKey="yield"
+                    fill="hsl(40, 90%, 56%)"
                     radius={[4, 4, 0, 0]}
+                    stackId="b"
                   />
                 </BarChart>
               </ResponsiveContainer>
