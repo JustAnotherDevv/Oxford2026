@@ -7,30 +7,9 @@ import {
   usePublicClient,
 } from "wagmi";
 import { parseUnits, formatUnits, parseAbiItem } from "viem";
-import {
-  Shield,
-  Lock,
-  Unlock,
-  EyeOff,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  Repeat2,
-  Copy,
-  Loader2,
-  Check,
-  Wallet,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Shield, Wallet } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
 import {
   PRIVATE_POOL_ADDRESS,
   TOKEN_ADDRESS,
@@ -55,10 +34,9 @@ import {
 } from "@/lib/noir";
 import { getTree, rebuildTreeFromEvents } from "@/lib/merkle";
 
-function truncateHex(hex: string, chars = 6): string {
-  if (hex.length <= chars * 2 + 2) return hex;
-  return `${hex.slice(0, chars + 2)}...${hex.slice(-chars)}`;
-}
+import { FortuneCookieGrid } from "@/components/privacy/fortune-cookie-grid";
+import { DepositCard } from "@/components/privacy/deposit-card";
+import { NoteActionModal } from "@/components/privacy/note-action-modal";
 
 const TREE_DEPTH = 20;
 
@@ -90,7 +68,6 @@ export default function PrivacyPage() {
         toBlock: "latest",
       });
 
-      // Sort by leafIndex to ensure correct insertion order
       const sorted = [...logs].sort((a, b) => {
         const idxA = Number(a.args.leafIndex ?? 0n);
         const idxB = Number(b.args.leafIndex ?? 0n);
@@ -102,8 +79,7 @@ export default function PrivacyPage() {
       setTreeReady(true);
     } catch (err) {
       console.error("Failed to rebuild Merkle tree:", err);
-      // Tree may be empty, still mark as ready
-      await getTree(); // Initialize empty tree
+      await getTree();
       setTreeReady(true);
     }
   }, [publicClient, isConnected]);
@@ -187,6 +163,52 @@ export default function PrivacyPage() {
   const [withdrawError, setWithdrawError] = useState("");
   const [withdrawTxHash, setWithdrawTxHash] = useState("");
 
+  // ── Fortune cookie modal state ──
+  const [crackedNote, setCrackedNote] = useState<Note | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  // ── Cookie crack handler ──
+  const handleCookieCrack = useCallback(
+    (note: Note) => {
+      setCrackedNote(note);
+      // Pre-select the cracked note for both transfer and withdraw
+      setSelectedNoteIds(new Set([note.id]));
+      setWithdrawNoteIds(new Set([note.id]));
+      // Pre-fill amount with the note value
+      const noteValue = formatUnits(BigInt(note.value), decimals);
+      setTransferAmount(noteValue);
+      setWithdrawAmount(noteValue);
+      // Reset statuses
+      setTransferStatus("idle");
+      setTransferError("");
+      setTransferTxHash("");
+      setWithdrawStatus("idle");
+      setWithdrawError("");
+      setWithdrawTxHash("");
+      setModalOpen(true);
+    },
+    [decimals],
+  );
+
+  // ── Toggle note selection helpers ──
+  function toggleTransferNote(id: string) {
+    setSelectedNoteIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else if (next.size < 2) next.add(id);
+      return next;
+    });
+  }
+
+  function toggleWithdrawNote(id: string) {
+    setWithdrawNoteIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else if (next.size < 2) next.add(id);
+      return next;
+    });
+  }
+
   // ── Wait for deposit receipt (for leafIndex from event) ──
   const { data: depositReceipt } = useWaitForTransactionReceipt({
     hash: depositTxHash as `0x${string}` | undefined,
@@ -195,7 +217,6 @@ export default function PrivacyPage() {
 
   useEffect(() => {
     if (depositReceipt && depositStatus === "depositing") {
-      // Parse Deposit event to get leafIndex
       const depositLog = depositReceipt.logs[depositReceipt.logs.length - 1];
       if (depositLog && depositLog.data) {
         const data = depositLog.data;
@@ -217,7 +238,6 @@ export default function PrivacyPage() {
           };
           saveNote(note);
           sessionStorage.removeItem("pending_deposit");
-          // Also insert into local Merkle tree
           getTree().then((tree) => tree.insertLeaf(pending.commitment));
           refreshNotes();
           refetchBalance();
@@ -257,7 +277,6 @@ export default function PrivacyPage() {
         }),
       );
 
-      // Check allowance and approve if needed
       const currentAllowance = allowance ?? 0n;
       if (currentAllowance < amountWei) {
         setDepositStatus("approving");
@@ -276,7 +295,6 @@ export default function PrivacyPage() {
         }
       }
 
-      // Deposit
       setDepositStatus("depositing");
       const tx = await writeContractAsync({
         address: PRIVATE_POOL_ADDRESS,
@@ -333,7 +351,6 @@ export default function PrivacyPage() {
       const outViewingKey1 = generateSecret();
       const outViewingKey2 = generateSecret();
 
-      // Compute Pedersen hashes
       const hashes = await computeHashes({
         nullSecret1: in1.secret,
         nullIdx1: in1.leafIndex.toString(),
@@ -349,11 +366,9 @@ export default function PrivacyPage() {
         vk2: outViewingKey2,
       });
 
-      // Get Merkle proofs from frontend Pedersen tree
       const tree = await getTree();
       const proof1 = await tree.getMerkleProof(in1.leafIndex);
 
-      // For dummy input, use zeros
       const dummyPath = new Array(TREE_DEPTH).fill("0");
       const dummyDirs = new Array(TREE_DEPTH).fill(0);
 
@@ -363,7 +378,6 @@ export default function PrivacyPage() {
 
       setTransferStatus("proving");
 
-      // Assemble full circuit inputs
       const circuitInputs: CircuitInputs = {
         merkle_root: BigInt(proof1.root).toString(),
         nullifier_1: hashes.nullifier1,
@@ -403,7 +417,6 @@ export default function PrivacyPage() {
         out_viewing_key_2: outViewingKey2,
       };
 
-      // Generate real ZK proof
       const { proof, publicInputs } = await generateProof(circuitInputs);
 
       setTransferStatus("submitting");
@@ -414,25 +427,21 @@ export default function PrivacyPage() {
         args: [proof, publicInputs],
       });
 
-      // Mark input notes as spent
       for (const n of selectedNotes) {
         markNoteSpent(n.id);
       }
 
-      // Save output notes globally
-      // Note 1: recipient's note
       saveNote({
         id: generateNoteId(),
         value: sendAmount.toString(),
         secret: outSecret1,
         owner: recipientField,
         commitment: fieldToBytes32(hashes.commitment1),
-        leafIndex: tree.leafCount, // Will be assigned by contract
+        leafIndex: tree.leafCount,
         spent: false,
         createdAt: Date.now(),
       });
 
-      // Note 2: change note (back to sender)
       if (changeAmount > 0n) {
         saveNote({
           id: generateNoteId(),
@@ -446,7 +455,6 @@ export default function PrivacyPage() {
         });
       }
 
-      // Insert new commitments into local tree
       await tree.insertLeaf(fieldToBytes32(hashes.commitment1));
       await tree.insertLeaf(fieldToBytes32(hashes.commitment2));
 
@@ -503,9 +511,6 @@ export default function PrivacyPage() {
       const outViewingKey1 = generateSecret();
       const outViewingKey2 = generateSecret();
 
-      // For withdraw, output 1 value is 0 (withdrawn amount leaves the pool)
-      // output 2 is change back to sender
-      // The withdrawn amount is passed as fee to balance: total_in == total_out + fee
       const hashes = await computeHashes({
         nullSecret1: in1.secret,
         nullIdx1: in1.leafIndex.toString(),
@@ -521,7 +526,6 @@ export default function PrivacyPage() {
         vk2: outViewingKey2,
       });
 
-      // Get Merkle proofs
       const tree = await getTree();
       const proof1 = await tree.getMerkleProof(in1.leafIndex);
 
@@ -605,7 +609,6 @@ export default function PrivacyPage() {
         });
       }
 
-      // Insert new commitments into local tree
       await tree.insertLeaf(fieldToBytes32(hashes.commitment1));
       await tree.insertLeaf(fieldToBytes32(hashes.commitment2));
 
@@ -621,25 +624,6 @@ export default function PrivacyPage() {
       );
       setWithdrawStatus("error");
     }
-  }
-
-  // ── Toggle note selection helpers ──
-  function toggleTransferNote(id: string) {
-    setSelectedNoteIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else if (next.size < 2) next.add(id);
-      return next;
-    });
-  }
-
-  function toggleWithdrawNote(id: string) {
-    setWithdrawNoteIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else if (next.size < 2) next.add(id);
-      return next;
-    });
   }
 
   // ── Not connected state ──
@@ -697,7 +681,7 @@ export default function PrivacyPage() {
         </Card>
         <Card className="bg-card border-border">
           <CardContent className="p-5">
-            <p className="text-sm text-muted-foreground">Unspent Notes</p>
+            <p className="text-sm text-muted-foreground">Fortune Cookies</p>
             <p className="mt-1 font-display text-2xl font-bold text-card-foreground">
               {notes.length}
             </p>
@@ -728,378 +712,68 @@ export default function PrivacyPage() {
         </Card>
       </div>
 
-      {/* Notes + Actions two-column */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Private Notes */}
-        <Card className="bg-card border-border">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base font-semibold text-card-foreground">
-              <Lock className="h-4 w-4 text-primary" />
-              Private Notes (UTXOs)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {notes.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                No unspent notes. Deposit funds to create your first UTXO.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {notes.map((note) => (
-                  <div
-                    key={note.id}
-                    className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 p-3"
-                  >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                      <Unlock className="h-3.5 w-3.5 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-card-foreground">
-                        {formatUnits(BigInt(note.value), decimals)} {symbol}
-                      </p>
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <span className="font-mono">
-                          {truncateHex(note.commitment)}
-                        </span>
-                        <button
-                          onClick={() =>
-                            navigator.clipboard.writeText(note.commitment)
-                          }
-                          className="hover:text-foreground transition-colors"
-                          title="Copy commitment"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <Badge variant="secondary" className="text-[10px]">
-                        Unspent
-                      </Badge>
-                      {note.leafIndex >= 0 && (
-                        <p className="mt-0.5 text-[10px] text-muted-foreground">
-                          Leaf #{note.leafIndex}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+      {/* Fortune Cookie Grid + Deposit Card */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="bg-card border-border lg:col-span-2">
+          <CardContent className="p-5">
+            <h3 className="text-base font-semibold text-card-foreground mb-1">
+              Your Fortune Cookies
+            </h3>
+            <p className="text-xs text-muted-foreground mb-2">
+              Click a cookie to crack it open and transfer or withdraw.
+            </p>
+            <FortuneCookieGrid
+              notes={notes}
+              decimals={decimals}
+              symbol={symbol}
+              onCrack={handleCookieCrack}
+            />
           </CardContent>
         </Card>
 
-        {/* Actions */}
-        <Card className="bg-card border-border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold text-card-foreground">
-              Actions
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <Tabs defaultValue="deposit">
-              <TabsList className="w-full">
-                <TabsTrigger value="deposit" className="flex-1 gap-1.5">
-                  <ArrowDownToLine className="h-3.5 w-3.5" />
-                  Deposit
-                </TabsTrigger>
-                <TabsTrigger value="transfer" className="flex-1 gap-1.5">
-                  <Repeat2 className="h-3.5 w-3.5" />
-                  Transfer
-                </TabsTrigger>
-                <TabsTrigger value="withdraw" className="flex-1 gap-1.5">
-                  <ArrowUpFromLine className="h-3.5 w-3.5" />
-                  Withdraw
-                </TabsTrigger>
-              </TabsList>
-
-              {/* ── Deposit Tab ── */}
-              <TabsContent
-                value="deposit"
-                className="mt-4 flex flex-col gap-4"
-              >
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="deposit-amount">Amount ({symbol})</Label>
-                    {tokenBalance !== undefined && (
-                      <span className="text-xs text-muted-foreground">
-                        Balance: {formatUnits(tokenBalance, decimals)}
-                      </span>
-                    )}
-                  </div>
-                  <Input
-                    id="deposit-amount"
-                    type="number"
-                    placeholder="100"
-                    value={depositAmount}
-                    onChange={(e) => setDepositAmount(e.target.value)}
-                    disabled={
-                      depositStatus !== "idle" &&
-                      depositStatus !== "done" &&
-                      depositStatus !== "error"
-                    }
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Funds will be shielded into a new UTXO commitment on-chain.
-                </p>
-                {depositError && (
-                  <p className="text-xs text-destructive">{depositError}</p>
-                )}
-                {depositStatus === "done" && depositTxHash && (
-                  <p className="text-xs text-primary flex items-center gap-1">
-                    <Check className="h-3 w-3" />
-                    Deposited! Tx: {truncateHex(depositTxHash)}
-                  </p>
-                )}
-                <Button
-                  className="gap-2"
-                  onClick={handleDeposit}
-                  disabled={
-                    !depositAmount ||
-                    (depositStatus !== "idle" &&
-                      depositStatus !== "done" &&
-                      depositStatus !== "error")
-                  }
-                >
-                  {depositStatus === "computing" ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" /> Computing
-                      commitment...
-                    </>
-                  ) : depositStatus === "approving" ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" /> Approving...
-                    </>
-                  ) : depositStatus === "depositing" ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />{" "}
-                      Depositing...
-                    </>
-                  ) : (
-                    <>
-                      <Shield className="h-4 w-4" /> Shield &amp; Deposit
-                    </>
-                  )}
-                </Button>
-              </TabsContent>
-
-              {/* ── Transfer Tab ── */}
-              <TabsContent
-                value="transfer"
-                className="mt-4 flex flex-col gap-4"
-              >
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="transfer-recipient">
-                    Recipient Address (0x...)
-                  </Label>
-                  <Input
-                    id="transfer-recipient"
-                    placeholder="0x..."
-                    value={transferRecipient}
-                    onChange={(e) => setTransferRecipient(e.target.value)}
-                    disabled={
-                      transferStatus !== "idle" &&
-                      transferStatus !== "done" &&
-                      transferStatus !== "error"
-                    }
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="transfer-amount">Amount ({symbol})</Label>
-                  <Input
-                    id="transfer-amount"
-                    type="number"
-                    placeholder="50"
-                    value={transferAmount}
-                    onChange={(e) => setTransferAmount(e.target.value)}
-                    disabled={
-                      transferStatus !== "idle" &&
-                      transferStatus !== "done" &&
-                      transferStatus !== "error"
-                    }
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label>Select Notes to Spend (max 2)</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {notes.map((note) => (
-                      <Badge
-                        key={note.id}
-                        variant={
-                          selectedNoteIds.has(note.id) ? "default" : "outline"
-                        }
-                        className="cursor-pointer hover:bg-secondary text-xs"
-                        onClick={() => toggleTransferNote(note.id)}
-                      >
-                        {formatUnits(BigInt(note.value), decimals)} {symbol}
-                      </Badge>
-                    ))}
-                    {notes.length === 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        No notes available
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  A ZK proof will be generated (this may take 30-60 seconds).
-                </p>
-                {transferError && (
-                  <p className="text-xs text-destructive">{transferError}</p>
-                )}
-                {transferStatus === "done" && transferTxHash && (
-                  <p className="text-xs text-primary flex items-center gap-1">
-                    <Check className="h-3 w-3" />
-                    Transfer submitted! Tx: {truncateHex(transferTxHash)}
-                  </p>
-                )}
-                <Button
-                  className="gap-2"
-                  onClick={handleTransfer}
-                  disabled={
-                    !transferAmount ||
-                    !transferRecipient ||
-                    selectedNoteIds.size === 0 ||
-                    !treeReady ||
-                    (transferStatus !== "idle" &&
-                      transferStatus !== "done" &&
-                      transferStatus !== "error")
-                  }
-                >
-                  {transferStatus === "computing" ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" /> Computing
-                      hashes...
-                    </>
-                  ) : transferStatus === "proving" ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" /> Generating
-                      ZK proof...
-                    </>
-                  ) : transferStatus === "submitting" ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" /> Submitting
-                      tx...
-                    </>
-                  ) : (
-                    <>
-                      <EyeOff className="h-4 w-4" /> Private Transfer
-                    </>
-                  )}
-                </Button>
-              </TabsContent>
-
-              {/* ── Withdraw Tab ── */}
-              <TabsContent
-                value="withdraw"
-                className="mt-4 flex flex-col gap-4"
-              >
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="withdraw-address">Recipient Address</Label>
-                  <Input
-                    id="withdraw-address"
-                    placeholder="0x..."
-                    value={withdrawRecipient}
-                    onChange={(e) => setWithdrawRecipient(e.target.value)}
-                    disabled={
-                      withdrawStatus !== "idle" &&
-                      withdrawStatus !== "done" &&
-                      withdrawStatus !== "error"
-                    }
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="withdraw-amount">Amount ({symbol})</Label>
-                  <Input
-                    id="withdraw-amount"
-                    type="number"
-                    placeholder="50"
-                    value={withdrawAmount}
-                    onChange={(e) => setWithdrawAmount(e.target.value)}
-                    disabled={
-                      withdrawStatus !== "idle" &&
-                      withdrawStatus !== "done" &&
-                      withdrawStatus !== "error"
-                    }
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label>Select Notes to Spend (max 2)</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {notes.map((note) => (
-                      <Badge
-                        key={note.id}
-                        variant={
-                          withdrawNoteIds.has(note.id) ? "default" : "outline"
-                        }
-                        className="cursor-pointer hover:bg-secondary text-xs"
-                        onClick={() => toggleWithdrawNote(note.id)}
-                      >
-                        {formatUnits(BigInt(note.value), decimals)} {symbol}
-                      </Badge>
-                    ))}
-                    {notes.length === 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        No notes available
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Funds will be unshielded and sent to the recipient address.
-                  ZK proof generation may take 30-60 seconds.
-                </p>
-                {withdrawError && (
-                  <p className="text-xs text-destructive">{withdrawError}</p>
-                )}
-                {withdrawStatus === "done" && withdrawTxHash && (
-                  <p className="text-xs text-primary flex items-center gap-1">
-                    <Check className="h-3 w-3" />
-                    Withdrawal submitted! Tx: {truncateHex(withdrawTxHash)}
-                  </p>
-                )}
-                <Button
-                  variant="outline"
-                  className="gap-2 bg-transparent"
-                  onClick={handleWithdraw}
-                  disabled={
-                    !withdrawAmount ||
-                    !withdrawRecipient ||
-                    withdrawNoteIds.size === 0 ||
-                    !treeReady ||
-                    (withdrawStatus !== "idle" &&
-                      withdrawStatus !== "done" &&
-                      withdrawStatus !== "error")
-                  }
-                >
-                  {withdrawStatus === "computing" ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" /> Computing
-                      hashes...
-                    </>
-                  ) : withdrawStatus === "proving" ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" /> Generating
-                      ZK proof...
-                    </>
-                  ) : withdrawStatus === "submitting" ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" /> Submitting
-                      tx...
-                    </>
-                  ) : (
-                    <>
-                      <ArrowUpFromLine className="h-4 w-4" /> Withdraw to
-                      Address
-                    </>
-                  )}
-                </Button>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+        <DepositCard
+          depositAmount={depositAmount}
+          setDepositAmount={setDepositAmount}
+          depositStatus={depositStatus}
+          depositError={depositError}
+          depositTxHash={depositTxHash}
+          tokenBalance={tokenBalance}
+          decimals={decimals}
+          symbol={symbol}
+          onDeposit={handleDeposit}
+        />
       </div>
+
+      {/* Note Action Modal */}
+      <NoteActionModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        crackedNote={crackedNote}
+        notes={notes}
+        decimals={decimals}
+        symbol={symbol}
+        treeReady={treeReady}
+        transferRecipient={transferRecipient}
+        setTransferRecipient={setTransferRecipient}
+        transferAmount={transferAmount}
+        setTransferAmount={setTransferAmount}
+        selectedNoteIds={selectedNoteIds}
+        toggleTransferNote={toggleTransferNote}
+        transferStatus={transferStatus}
+        transferError={transferError}
+        transferTxHash={transferTxHash}
+        onTransfer={handleTransfer}
+        withdrawRecipient={withdrawRecipient}
+        setWithdrawRecipient={setWithdrawRecipient}
+        withdrawAmount={withdrawAmount}
+        setWithdrawAmount={setWithdrawAmount}
+        withdrawNoteIds={withdrawNoteIds}
+        toggleWithdrawNote={toggleWithdrawNote}
+        withdrawStatus={withdrawStatus}
+        withdrawError={withdrawError}
+        withdrawTxHash={withdrawTxHash}
+        onWithdraw={handleWithdraw}
+      />
     </div>
   );
 }
