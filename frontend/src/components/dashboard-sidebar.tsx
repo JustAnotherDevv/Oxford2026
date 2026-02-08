@@ -18,15 +18,15 @@ import { Button } from "@/components/ui/button";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Payments", href: "/dashboard/payments", icon: ArrowLeftRight },
+  // { label: "Payments", href: "/dashboard/payments", icon: ArrowLeftRight },
   { label: "Assets", href: "/dashboard/assets", icon: PieChart },
   { label: "Cards", href: "/dashboard/cards", icon: CreditCard },
   { label: "Privacy", href: "/dashboard/privacy", icon: Shield },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings },
+  // { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
 const bottomItems = [
-  { label: "Help Center", href: "#", icon: HelpCircle },
+  // { label: "Help Center", href: "#", icon: HelpCircle },
   { label: "Log Out", href: "/", icon: LogOut },
 ];
 
@@ -61,11 +61,11 @@ export function DashboardSidebar({ open, onClose }: DashboardSidebarProps) {
         {/* Logo */}
         <div className="flex h-16 items-center justify-between px-6">
           <Link to="/dashboard" className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+            {/* <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <span className="font-display text-sm font-bold text-primary-foreground">
                 V
               </span>
-            </div>
+            </div> */}
             <span className="font-display text-lg font-bold text-sidebar-foreground">
               Renaissance
             </span>

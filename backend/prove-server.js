@@ -30,7 +30,10 @@ app.post("/api/prove", async (req, res) => {
         lines.push(`${key} = "${value}"`);
       }
     }
-    fs.writeFileSync(path.join(NOIR_DIR, "Prover.toml"), lines.join("\n"));
+    const tomlContent = lines.join("\n");
+    console.log(`[${id}] fee value received:`, inputs.fee);
+    console.log(`[${id}] Prover.toml:\n${tomlContent}\n`);
+    fs.writeFileSync(path.join(NOIR_DIR, "Prover.toml"), tomlContent);
 
     // Generate witness
     execSync(`${NARGO} execute ${witnessName}`, {

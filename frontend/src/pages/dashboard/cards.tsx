@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   CreditCard,
   Eye,
@@ -103,6 +103,35 @@ const recentSpending = [
 export default function CardsPage() {
   const [showNumbers, setShowNumbers] = useState(false);
 
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const card = e.currentTarget;
+    const shine = card.querySelector("[data-shine]") as HTMLDivElement | null;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const rotateX = ((y - centerY) / centerY) * -8;
+    const rotateY = ((x - centerX) / centerX) * 8;
+    card.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.03, 1.03, 1.03)`;
+    card.style.transition = "transform 0.1s ease-out";
+    if (shine) {
+      shine.style.opacity = "1";
+      shine.style.background = `radial-gradient(circle at ${x}px ${y}px, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.1) 30%, transparent 60%)`;
+    }
+  }, []);
+
+  const handleMouseLeave = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const card = e.currentTarget;
+    const shine = card.querySelector("[data-shine]") as HTMLDivElement | null;
+    card.style.transform = "perspective(800px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)";
+    card.style.transition = "transform 0.4s ease-out";
+    if (shine) {
+      shine.style.opacity = "0";
+      shine.style.transition = "opacity 0.4s ease-out";
+    }
+  }, []);
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
@@ -132,14 +161,22 @@ export default function CardsPage() {
         {cards.map((card) => (
           <div
             key={card.id}
-            className="relative overflow-hidden rounded-2xl border border-border p-6"
+            className="relative overflow-hidden rounded-2xl border border-border p-6 will-change-transform"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
             style={{
               background:
                 card.status === "frozen"
                   ? "linear-gradient(135deg, hsl(220, 14%, 10%), hsl(220, 14%, 15%))"
                   : "linear-gradient(135deg, hsl(220, 14%, 7%), hsl(160, 84%, 15%))",
+              transformStyle: "preserve-3d",
             }}
           >
+            <div
+              data-shine
+              className="pointer-events-none absolute inset-0 z-10 rounded-2xl opacity-0 transition-opacity duration-300"
+            />
+
             {card.status === "frozen" && (
               <div className="absolute inset-0 flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
                 <div className="flex flex-col items-center gap-2">

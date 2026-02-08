@@ -505,6 +505,7 @@ export default function PrivacyPage() {
 
       // For withdraw, output 1 value is 0 (withdrawn amount leaves the pool)
       // output 2 is change back to sender
+      // The withdrawn amount is passed as fee to balance: total_in == total_out + fee
       const hashes = await computeHashes({
         nullSecret1: in1.secret,
         nullIdx1: in1.leafIndex.toString(),
@@ -539,7 +540,7 @@ export default function PrivacyPage() {
         nullifier_2: hashes.nullifier2,
         out_commitment_1: hashes.commitment1,
         out_commitment_2: hashes.commitment2,
-        fee: "0",
+        fee: wdAmount.toString(),
         relayer: "0",
         encrypted_value_1: hashes.encryptedValue1,
         encrypted_value_2: hashes.encryptedValue2,

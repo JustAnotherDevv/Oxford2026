@@ -30,13 +30,17 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
-        <ConnectButton accountStatus="avatar" chainStatus="icon" showBalance={false} />
+        <ConnectButton
+          accountStatus="avatar"
+          chainStatus="icon"
+          showBalance={false}
+        />
         <ThemeToggle />
-        <Button variant="ghost" size="icon" className="relative text-foreground">
+        {/* <Button variant="ghost" size="icon" className="relative text-foreground">
           <Bell className="h-5 w-5" />
           <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" />
           <span className="sr-only">Notifications</span>
-        </Button>
+        </Button> */}
       </div>
     </header>
   );
