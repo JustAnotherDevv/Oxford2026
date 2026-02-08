@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   ArrowUpRight,
   ArrowDownLeft,
@@ -11,6 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { DocumentEditor } from "@/components/receive/document-editor";
 import {
   AreaChart,
   Area,
@@ -87,6 +89,8 @@ const assets = [
 ];
 
 export default function DashboardPage() {
+  const [receiveOpen, setReceiveOpen] = useState(false);
+
   return (
     <div className="flex flex-col gap-6">
       {/* Page header */}
@@ -100,7 +104,12 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-2 bg-transparent">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 bg-transparent"
+            onClick={() => setReceiveOpen(true)}
+          >
             <Download className="h-4 w-4" />
             <span className="hidden sm:inline">Receive</span>
           </Button>
@@ -352,6 +361,8 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+
+      <DocumentEditor open={receiveOpen} onOpenChange={setReceiveOpen} />
     </div>
   );
 }

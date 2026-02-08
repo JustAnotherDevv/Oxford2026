@@ -7,12 +7,14 @@ import CardsPage from "@/pages/dashboard/cards";
 import PaymentsPage from "@/pages/dashboard/payments";
 import SettingsPage from "@/pages/dashboard/settings";
 import PrivacyPage from "@/pages/dashboard/privacy";
+import PayPage from "@/pages/pay";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/pay/:cid" element={<PayPage />} />
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="assets" element={<AssetsPage />} />
