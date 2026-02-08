@@ -116,8 +116,8 @@ export function DocumentEditor({ open, onOpenChange }: DocumentEditorProps) {
     }
 
     let signatureDataUrl: string | null = null;
-    if (sigRef.current && !sigRef.current.isEmpty()) {
-      signatureDataUrl = sigRef.current.getTrimmedCanvas().toDataURL("image/png");
+    if (sigRef.current) {
+      signatureDataUrl = sigRef.current.getCanvas().toDataURL("image/png");
     }
 
     setUploading(true);
@@ -339,9 +339,8 @@ export function DocumentEditor({ open, onOpenChange }: DocumentEditorProps) {
                 <SignatureCanvas
                   ref={sigRef}
                   penColor="white"
-                  backgroundColor="#09090b"
                   canvasProps={{
-                    className: "w-full h-24 rounded-md",
+                    className: "w-full h-24 rounded-md bg-zinc-950",
                     style: { width: "100%", height: "96px" },
                   }}
                 />

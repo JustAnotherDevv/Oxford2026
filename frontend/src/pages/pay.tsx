@@ -184,7 +184,7 @@ export default function PayPage() {
           {doc.signature && (
             <div>
               <p className="mb-1 text-xs text-muted-foreground">Signature</p>
-              <div className="rounded-md border border-border bg-background p-2 inline-block">
+              <div className="rounded-md border border-border bg-zinc-950 p-2 inline-block">
                 <img
                   src={doc.signature}
                   alt="Signature"
