@@ -21,7 +21,7 @@ const allTransactions = [
     id: "TX-001",
     type: "outgoing" as const,
     label: "Vendor Payment - CloudServe Inc.",
-    amount: "-12,500.00 USDC",
+    amount: "-12,500.00 USDT",
     chain: "Ethereum",
     status: "Completed" as const,
     date: "Feb 7, 2026",
@@ -31,7 +31,7 @@ const allTransactions = [
     id: "TX-002",
     type: "incoming" as const,
     label: "Client Payment - TechFlow Ltd.",
-    amount: "+45,000.00 USDC",
+    amount: "+45,000.00 USDT",
     chain: "Polygon",
     status: "Completed" as const,
     date: "Feb 7, 2026",
@@ -41,7 +41,7 @@ const allTransactions = [
     id: "TX-003",
     type: "outgoing" as const,
     label: "Payroll Batch #127",
-    amount: "-87,320.00 USDC",
+    amount: "-87,320.00 USDT",
     chain: "Arbitrum",
     status: "Pending" as const,
     date: "Feb 7, 2026",
@@ -61,7 +61,7 @@ const allTransactions = [
     id: "TX-005",
     type: "outgoing" as const,
     label: "SaaS Subscription - DevTools Pro",
-    amount: "-2,400.00 USDC",
+    amount: "-2,400.00 USDT",
     chain: "Base",
     status: "Completed" as const,
     date: "Feb 6, 2026",
@@ -71,7 +71,7 @@ const allTransactions = [
     id: "TX-006",
     type: "outgoing" as const,
     label: "Infrastructure - AWS Billing",
-    amount: "-8,750.00 USDC",
+    amount: "-8,750.00 USDT",
     chain: "Ethereum",
     status: "Failed" as const,
     date: "Feb 5, 2026",
@@ -81,7 +81,7 @@ const allTransactions = [
     id: "TX-007",
     type: "incoming" as const,
     label: "Investment Return - DeFi Yield",
-    amount: "+15,340.00 USDC",
+    amount: "+15,340.00 USDT",
     chain: "Avalanche",
     status: "Completed" as const,
     date: "Feb 5, 2026",
@@ -91,7 +91,7 @@ const allTransactions = [
     id: "TX-008",
     type: "outgoing" as const,
     label: "Office Rent - WeWork Q1",
-    amount: "-24,000.00 USDC",
+    amount: "-24,000.00 USDT",
     chain: "Polygon",
     status: "Pending" as const,
     date: "Feb 4, 2026",
@@ -123,7 +123,7 @@ export default function PaymentsPage() {
   const filtered = allTransactions.filter(
     (tx) =>
       tx.label.toLowerCase().includes(search.toLowerCase()) ||
-      tx.id.toLowerCase().includes(search.toLowerCase())
+      tx.id.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
@@ -191,7 +191,11 @@ export default function PaymentsPage() {
                   className="pl-9 bg-secondary border-border"
                 />
               </div>
-              <Button variant="outline" size="icon" className="shrink-0 bg-transparent">
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0 bg-transparent"
+              >
                 <Filter className="h-4 w-4" />
                 <span className="sr-only">Filter</span>
               </Button>
@@ -210,9 +214,7 @@ export default function PaymentsPage() {
               <TabsContent key={tab} value={tab}>
                 <div className="flex flex-col gap-2">
                   {filtered
-                    .filter(
-                      (tx) => tab === "all" || tx.type === tab
-                    )
+                    .filter((tx) => tab === "all" || tx.type === tab)
                     .map((tx) => {
                       const sc = statusConfig[tx.status];
                       return (
@@ -275,9 +277,8 @@ export default function PaymentsPage() {
                         </div>
                       );
                     })}
-                  {filtered.filter(
-                    (tx) => tab === "all" || tx.type === tab
-                  ).length === 0 && (
+                  {filtered.filter((tx) => tab === "all" || tx.type === tab)
+                    .length === 0 && (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                       <p className="text-sm text-muted-foreground">
                         No transactions found.

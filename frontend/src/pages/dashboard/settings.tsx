@@ -224,7 +224,7 @@ export default function SettingsPage() {
                       className="w-40 bg-secondary border-border"
                     />
                     <span className="text-sm text-muted-foreground">
-                      USDC - Transactions above this require approval
+                      USDT - Transactions above this require approval
                     </span>
                   </div>
                 </div>
@@ -266,7 +266,11 @@ export default function SettingsPage() {
                     </Badge>
                   </div>
                 </div>
-                <Button variant="outline" size="sm" className="mt-4 gap-2 bg-transparent">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4 gap-2 bg-transparent"
+                >
                   <Key className="h-4 w-4" />
                   Generate New Key
                 </Button>

@@ -29,35 +29,35 @@ const items = [
 
 export function SecuritySection() {
   return (
-    <section id="security" className="bg-card py-20 lg:py-28">
+    <section id="security" className="bg-card py-24 lg:py-32">
       <div className="mx-auto max-w-7xl px-4 lg:px-8">
         <div className="grid gap-12 lg:grid-cols-2 lg:gap-16 items-center">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-widest text-primary">
+            <p className="text-[11px] font-extralight uppercase tracking-[0.3em] text-primary">
               Security
             </p>
-            <h2 className="mt-3 font-display text-3xl font-bold text-foreground lg:text-4xl text-balance">
+            <h2 className="mt-4 font-display text-3xl font-light tracking-wide text-foreground lg:text-4xl text-balance">
               Institutional-grade protection for your digital assets
             </h2>
-            <p className="mt-4 text-muted-foreground leading-relaxed">
+            <p className="mt-5 font-extralight tracking-wide leading-relaxed text-muted-foreground">
               Renaissance employs the same security infrastructure trusted by
               the world&apos;s largest financial institutions, adapted for the
               unique challenges of digital asset custody.
             </p>
           </div>
-          <div className="grid gap-6 sm:grid-cols-2">
+          <div className="grid gap-5 sm:grid-cols-2">
             {items.map((item) => (
               <div
                 key={item.title}
-                className="rounded-xl border border-border bg-background p-5"
+                className="rounded-xl border border-border/50 bg-background p-6"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <item.icon className="h-5 w-5" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/8 ring-1 ring-primary/15 text-primary">
+                  <item.icon className="h-4 w-4" />
                 </div>
-                <h3 className="mt-3 font-display text-sm font-semibold text-foreground">
+                <h3 className="mt-4 font-display text-[15px] font-light tracking-wide text-foreground">
                   {item.title}
                 </h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                <p className="mt-2 text-[13px] font-extralight leading-relaxed tracking-wide text-muted-foreground">
                   {item.description}
                 </p>
               </div>

@@ -19,8 +19,8 @@ import {
 
 const portfolio = [
   {
-    name: "USDC",
-    symbol: "USDC",
+    name: "USDT",
+    symbol: "USDT",
     balance: "2,145,320.00",
     value: "$2,145,320",
     allocation: 55.7,
@@ -95,10 +95,12 @@ export default function AssetsPage() {
           </div>
           <div>
             <p className="text-sm font-medium text-card-foreground">
-              Your portfolio is passively accruing yield from delta-neutral strategies
+              Your portfolio is passively accruing yield from delta-neutral
+              strategies
             </p>
             <p className="text-xs text-muted-foreground">
-              Returns are generated through hedged positions that remain market-neutral, protecting capital while earning yield.
+              Returns are generated through hedged positions that remain
+              market-neutral, protecting capital while earning yield.
             </p>
           </div>
         </CardContent>
@@ -280,7 +282,10 @@ export default function AssetsPage() {
                     </p>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <span>{asset.symbol}</span>
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0"
+                      >
                         {asset.chain}
                       </Badge>
                     </div>
